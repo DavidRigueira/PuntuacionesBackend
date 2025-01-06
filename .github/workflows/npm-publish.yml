@@ -1,33 +1,50 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
-
-name: Node.js Package
+name: Node.js CI
 
 on:
-  release:
-    types: [created]
+  push:
+    branches: [ "main" ] # Cambiado de "master" a "main"
+  pull_request:
+    branches: [ "main" ] # Cambiado de "master" a "main"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm test
 
-  publish-npm:
-    needs: build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18] # Agregadas más versiones de Node.js
+        # Puedes añadir más versiones según lo necesites
+
     steps:
+      # 1. Descargar el código
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      # 2. Configurar Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org/
-      - run: npm ci
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # 3. Instalar dependencias
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Verificar formato del código (opcional)
+      - name: Lint code
+        run: npm run lint --if-present
+
+      # 5. Compilar el código
+      - name: Build the application
+        run: npm run build --if-present
+
+      # 6. Ejecutar pruebas
+      - name: Run tests
+        run: npm test
+
+      # 7. Generar reporte de cobertura (opcional)
+      - name: Upload coverage report to Codecov
+        if: success()
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
